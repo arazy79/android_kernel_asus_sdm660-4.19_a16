@@ -1391,7 +1391,7 @@ static int32_t stk3x1x_enable_ps(struct stk3x1x_data *ps_data, uint8_t enable, u
 		else
 #endif /* #ifdef STK_CHK_REG */
 		{
-			usleep_range(4000, 5000);
+			usleep_range(1000, 1500);
 			reading = stk3x1x_get_ps_reading(ps_data);
 			if (reading < 0)
 				return reading;
@@ -3945,7 +3945,6 @@ static void stk_work_func(struct work_struct *work)
 	}
 
 #endif
-	usleep_range(1000, 2000);
 	enable_irq(ps_data->irq);
 	return;
 
@@ -3957,10 +3956,106 @@ err_i2c_rw:
 
 static irqreturn_t stk_oss_irq_handler(int irq, void *data)
 {
-	struct stk3x1x_data *pData = data;
-	disable_irq_nosync(irq);
-	queue_work(pData->stk_wq,&pData->stk_work);
-	return IRQ_HANDLED;
+        struct stk3x1x_data *pData = data;
+        /* Langsung proses di thread IRQ, tidak perlu workqueue lagi */
+        int32_t ret;
+#ifndef STK_TUNE1
+        int32_t near_far_state;
+#endif
+#if ((STK_INT_PS_MODE != 0x03) && (STK_INT_PS_MODE != 0x02))
+        uint8_t disable_flag = 0;
+        int32_t org_flag_reg;
+#endif
+        uint32_t reading;
+#ifdef CTTRACKING
+        int err;
+#endif
+
+#if ((STK_INT_PS_MODE == 0x03) || (STK_INT_PS_MODE == 0x02))
+        stk_ps_int_handle_int_mode_2_3(pData);
+#else
+        org_flag_reg = stk3x1x_get_flag(pData);
+        if(org_flag_reg < 0)
+                goto err_i2c_rw;
+
+        if(org_flag_reg & STK_FLG_ALSINT_MASK)
+        {
+                disable_flag |= STK_FLG_ALSINT_MASK;
+                reading = stk3x1x_get_als_reading(pData);
+                if(reading < 0)
+                        goto err_i2c_rw;
+                ret = stk_als_int_handle(pData, reading);
+                if(ret < 0)
+                        goto err_i2c_rw;
+        }
+        if (org_flag_reg & STK_FLG_PSINT_MASK)
+        {
+                disable_flag |= STK_FLG_PSINT_MASK;
+                reading = stk3x1x_get_ps_reading(pData);
+                if(reading < 0)
+                        goto err_i2c_rw;
+                pData->ps_code_last = reading;
+#ifdef STK_TUNE1
+                ret = stk_tune1_ps_int_handle(pData, reading);
+                if(ret < 0)
+                        goto err_i2c_rw;
+#else
+                near_far_state = (org_flag_reg & STK_FLG_NF_MASK)?1:0;
+#ifdef CTTRACKING
+                if(near_far_state == 0){
+                        if((reading > (pData->psi + STK_H_PS))&&pData->skin_near) {
+                                pData->ps_thd_h = pData->psi + STK_H_HT;
+                                pData->ps_thd_l = pData->psi + STK_H_LT;
+                                if((err = stk3x1x_set_ps_thd_h(pData, pData->ps_thd_h)))
+                                {
+                                        printk(KERN_ERR"write high thd error: %d\n", err);
+                                }
+                                if((err = stk3x1x_set_ps_thd_l(pData, pData->ps_thd_l)))
+                                {
+                                        printk(KERN_ERR "write high thd error: %d\n", err);
+                                }
+                                pData->ps_thd_update = true;
+                                pData->skin_near = false;
+                                printk(KERN_INFO "%s:ps update ps = 0x%x, psi = 0x%x\n",__FUNCTION__, reading, pData->psi);
+                                printk(KERN_INFO "%s: update HT=%d, LT=%d\n", __func__, pData->ps_thd_h, pData->ps_thd_l);
+                        }
+                }else{
+                        pData->skin_near = true;
+                        if(pData->ps_thd_update) {
+                                err = stk_ps_val(pData);
+                                if(err == 0){
+                                        pData->ps_thd_h = reading + pData->stk_ht_n_ct;
+                                        pData->ps_thd_l = reading + pData->stk_lt_n_ct;
+                                        if((err = stk3x1x_set_ps_thd_h(pData, pData->ps_thd_h)))
+                                        {
+                                                printk(KERN_ERR "write high thd error: %d\n", err);
+                                        }
+                                        if((err = stk3x1x_set_ps_thd_l(pData, pData->ps_thd_l)))
+                                        {
+                                                printk(KERN_ERR "write low thd error: %d\n", err);
+                                        }
+                                        printk(KERN_INFO "%s: Set HT=%d, LT=%d\n", __func__, pData->ps_thd_h, pData->ps_thd_l);
+                                }
+                                pData->ps_thd_update = false;
+                        }
+                }
+#endif
+                stk_ps_int_handle(pData, reading, near_far_state);
+#endif
+        }
+        if(disable_flag)
+        {
+                ret = stk3x1x_set_flag(pData, org_flag_reg, disable_flag);
+                if(ret < 0)
+                        goto err_i2c_rw;
+        }
+#endif
+
+        return IRQ_HANDLED;
+
+err_i2c_rw:
+        msleep(30);
+        return IRQ_HANDLED;
 }
 #endif	/*	#if (!defined(STK_POLL_PS) || !defined(STK_POLL_ALS))	*/
 
@@ -4090,9 +4185,13 @@ static int stk3x1x_setup_irq(struct i2c_client *client)
 		return err;
 	}
 #if ((STK_INT_PS_MODE == 0x03) || (STK_INT_PS_MODE == 0x02))
-	err = request_any_context_irq(irq, stk_oss_irq_handler, IRQF_TRIGGER_FALLING|IRQF_TRIGGER_RISING, DEVICE_NAME, ps_data);
+        err = request_threaded_irq(irq, NULL, stk_oss_irq_handler,
+                                   IRQF_TRIGGER_FALLING|IRQF_TRIGGER_RISING|IRQF_ONESHOT,
+                                   DEVICE_NAME, ps_data);
 #else
-	err = request_any_context_irq(irq, stk_oss_irq_handler, IRQF_TRIGGER_LOW, DEVICE_NAME, ps_data);
+        err = request_threaded_irq(irq, NULL, stk_oss_irq_handler,
+                                   IRQF_TRIGGER_LOW|IRQF_ONESHOT,
+                                   DEVICE_NAME, ps_data);
 #endif
 	if (err < 0)
 	{
