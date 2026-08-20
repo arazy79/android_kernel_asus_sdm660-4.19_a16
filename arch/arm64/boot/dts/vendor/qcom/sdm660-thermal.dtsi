@@ -173,7 +173,7 @@
 
 		trips {
 			pm660_ibat_high: ibat-high {
-				temperature = <4200>;
+				temperature = <4300>;
 				hysteresis = <200>;
 				type = "passive";
 			};
@@ -204,7 +204,7 @@
 
 		trips {
 			pm660_ibat_vhigh: ibat-vhigh {
-				temperature = <4300>;
+				temperature = <4500>;
 				hysteresis = <100>;
 				type = "passive";
 			};
@@ -220,7 +220,7 @@
 
 		trips {
 			pm660_vbat_adc: vbat-adc {
-				temperature = <3500>;
+				temperature = <3700>;
 				hysteresis = <100>;
 				type = "passive";
 			};
@@ -629,13 +629,13 @@
 		wake-capable-sensor;
 		trips {
 			gold_trip: gold-trip {
-				temperature = <50000>;
+				temperature = <57000>;
 				hysteresis = <0>;
 				type = "passive";
 			};
 
 			silver_trip: silver-trip {
-				temperature = <53000>;
+				temperature = <55000>;
 				hysteresis = <0>;
 				type = "passive";
 			};
