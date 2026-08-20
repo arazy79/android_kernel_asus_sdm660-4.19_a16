@@ -739,7 +739,6 @@ static ssize_t store_##file_name					\
 }
 
 store_one(scaling_min_freq, min);
-store_one(scaling_max_freq, max);
 
 static ssize_t store_scaling_max_freq(struct cpufreq_policy *policy,
 				      const char *buf, size_t count)
@@ -756,12 +755,12 @@ static ssize_t store_scaling_max_freq(struct cpufreq_policy *policy,
 		return -EINVAL;
 
 	/* OC Hardfloor: block userspace downclock */
-	if (cpumask_test_cpu(0, policy->cpus)) {
-		/* Little cluster (cpu0-3) */
+	if (policy->cpu <= 3) {
+		/* Little cluster: cpu0-3 */
 		if (new_policy.max < 2150400)
 			new_policy.max = 2150400;
-	} else if (cpumask_test_cpu(4, policy->cpus)) {
-		/* Big cluster (cpu4-7) */
+	} else {
+		/* Big cluster: cpu4-7 */
 		if (new_policy.max < 2457600)
 			new_policy.max = 2457600;
 	}
