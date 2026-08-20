@@ -756,12 +756,12 @@ static ssize_t store_scaling_max_freq(struct cpufreq_policy *policy,
 		return -EINVAL;
 
 	/* OC Hardfloor: block userspace downclock */
-	if (policy->cpu <= 3) {
-		/* Little cluster: cpu0-3 */
+	if (cpumask_test_cpu(0, policy->cpus)) {
+		/* Little cluster (cpu0-3) */
 		if (new_policy.max < 2150400)
 			new_policy.max = 2150400;
-	} else {
-		/* Big cluster: cpu4-7 */
+	} else if (cpumask_test_cpu(4, policy->cpus)) {
+		/* Big cluster (cpu4-7) */
 		if (new_policy.max < 2457600)
 			new_policy.max = 2457600;
 	}
