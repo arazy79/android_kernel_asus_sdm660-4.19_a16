@@ -39,7 +39,7 @@
 
 	qcom,thermal-mitigation = <2000000 1800000 1500000 1200000
 				   1000000 700000 500000 300000>;
-	qcom,hvdcp-disable;
+	qcom,hvdcp-autonomous-enable;
 };
 
 &pm660_pdphy {
