@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Auto-cut charging module for X00TD
- * Sysfs: /sys/module/autocut/parameters/max_soc
- *        /sys/module/autocut/parameters/min_soc
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -29,14 +27,14 @@ static void autocut_work_fn(struct work_struct *work)
 	if (!psy)
 		goto reschedule;
 
-	ret = psy->get_property(psy, POWER_SUPPLY_PROP_CAPACITY, &val);
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CAPACITY, &val);
 	if (ret) {
 		power_supply_put(psy);
 		goto reschedule;
 	}
 	capacity = val.intval;
 
-	ret = psy->get_property(psy, POWER_SUPPLY_PROP_CHARGING_ENABLED, &val);
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CHARGING_ENABLED, &val);
 	if (ret) {
 		power_supply_put(psy);
 		goto reschedule;
@@ -45,13 +43,11 @@ static void autocut_work_fn(struct work_struct *work)
 
 	if (capacity >= max_soc && charging) {
 		val.intval = 0;
-		if (psy->set_property)
-			psy->set_property(psy, POWER_SUPPLY_PROP_CHARGING_ENABLED, &val);
+		power_supply_set_property(psy, POWER_SUPPLY_PROP_CHARGING_ENABLED, &val);
 		pr_info("autocut: charging STOPPED at %d%% (max=%d)\n", capacity, max_soc);
 	} else if (capacity <= min_soc && !charging) {
 		val.intval = 1;
-		if (psy->set_property)
-			psy->set_property(psy, POWER_SUPPLY_PROP_CHARGING_ENABLED, &val);
+		power_supply_set_property(psy, POWER_SUPPLY_PROP_CHARGING_ENABLED, &val);
 		pr_info("autocut: charging RESUMED at %d%% (min=%d)\n", capacity, min_soc);
 	}
 
