@@ -1,4 +1,4 @@
-name: Kernel Build A16 X00TD
+name: Kernel Build A16 TEST X00TD
 
 on:
   workflow_dispatch:
