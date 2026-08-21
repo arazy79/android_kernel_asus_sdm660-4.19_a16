@@ -85,7 +85,7 @@ void s2idle_set_ops(const struct platform_s2idle_ops *ops)
 }
 EXPORT_SYMBOL_GPL(s2idle_set_ops);
 
-extern void thaw_fingerprintd(void);
+void __weak thaw_fingerprintd(void) { }
 
 static void s2idle_begin(void)
 {
