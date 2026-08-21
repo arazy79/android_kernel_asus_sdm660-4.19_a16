@@ -5,6 +5,8 @@
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ *
+ * This file is released under the GPLv2.
  */
 
 #define pr_fmt(fmt) "PM: " fmt
@@ -34,6 +36,12 @@
 #include <linux/wakeup_reason.h>
 
 #include "power.h"
+
+#ifdef CONFIG_DYNAMIC_FSYNC
+#include <linux/dyn_sync_cntrl.h>
+extern void dyn_fsync_suspend(void);
+extern void dyn_fsync_resume(void);
+#endif
 
 const char * const pm_labels[] = {
 	[PM_SUSPEND_TO_IDLE] = "freeze",
@@ -76,6 +84,8 @@ void s2idle_set_ops(const struct platform_s2idle_ops *ops)
 	unlock_system_sleep();
 }
 EXPORT_SYMBOL_GPL(s2idle_set_ops);
+
+extern void thaw_fingerprintd(void);
 
 static void s2idle_begin(void)
 {
@@ -204,7 +214,6 @@ static int __init mem_sleep_default_setup(char *str)
 		if (mem_sleep_labels[state] &&
 		    !strcmp(str, mem_sleep_labels[state])) {
 			mem_sleep_default = state;
-			mem_sleep_current = state;
 			break;
 		}
 
@@ -446,6 +455,9 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		goto Enable_cpus;
 	}
 
+#ifdef CONFIG_DYNAMIC_FSYNC
+	dyn_fsync_suspend();
+#endif
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
 
@@ -469,12 +481,17 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 	system_state = SYSTEM_RUNNING;
 
 	arch_suspend_enable_irqs();
+#ifdef CONFIG_DYNAMIC_FSYNC
+	dyn_fsync_resume();
+#endif
 	BUG_ON(irqs_disabled());
 
  Enable_cpus:
 	enable_nonboot_cpus();
 
  Platform_wake:
+	thaw_fingerprintd();
+
 	platform_resume_noirq(state);
 	dpm_resume_noirq(PMSG_RESUME);
 
