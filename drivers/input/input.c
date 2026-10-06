@@ -383,15 +383,6 @@ static void input_handle_event(struct input_dev *dev,
 {
 	int disposition;
 
-	/*
-	 * KernelSU: хук input_handle_event.
-	 * Перехватываем события ввода для определения нажатия
-	 * аппаратной кнопки громкости при загрузке — это используется
-	 * для активации безопасного режима KernelSU (Safe Mode).
-	 * Вызывается до обработки события.
-	 */
-	ksu_handle_input_handle_event(&type, &code, &value);
-
 	disposition = input_get_disposition(dev, type, code, &value);
 
 	if (disposition != INPUT_IGNORE_EVENT && type != EV_SYN)
