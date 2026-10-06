@@ -44,7 +44,6 @@
 #include <linux/oom.h>
 #include <linux/compat.h>
 #include <linux/vmalloc.h>
-#include <linux/ksu.h>
 
 #include <linux/uaccess.h>
 #include <asm/mmu_context.h>
