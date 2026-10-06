@@ -31,7 +31,6 @@
 #include <linux/ima.h>
 #include <linux/dnotify.h>
 #include <linux/compat.h>
-#include <linux/ksu.h>
 
 #include "internal.h"
 #include <trace/hooks/syscall_check.h>
