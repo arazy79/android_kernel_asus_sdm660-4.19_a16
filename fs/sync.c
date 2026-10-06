@@ -2,7 +2,6 @@
 /*
  * High-level sync()-related operations
  */
-
 #include <linux/kernel.h>
 #include <linux/file.h>
 #include <linux/fs.h>
@@ -17,7 +16,6 @@
 #include <linux/quotaops.h>
 #include <linux/backing-dev.h>
 #include "internal.h"
-
 #ifdef CONFIG_DYNAMIC_FSYNC
 #include <linux/dyn_sync_cntrl.h>
 #endif
@@ -41,7 +39,6 @@ static int __sync_filesystem(struct super_block *sb, int wait)
 		sync_inodes_sb(sb);
 	else
 		writeback_inodes_sb(sb, WB_REASON_SYNC);
-
 	if (sb->s_op->sync_fs)
 		sb->s_op->sync_fs(sb, wait);
 	return __sync_blockdev(sb->s_bdev, wait);
@@ -55,19 +52,16 @@ static int __sync_filesystem(struct super_block *sb, int wait)
 int sync_filesystem(struct super_block *sb)
 {
 	int ret;
-
 	/*
 	 * We need to be protected against the filesystem going from
 	 * r/o to r/w or vice versa.
 	 */
 	WARN_ON(!rwsem_is_locked(&sb->s_umount));
-
 	/*
 	 * No point in syncing out anything if the filesystem is read-only.
 	 */
 	if (sb_rdonly(sb))
 		return 0;
-
 	ret = __sync_filesystem(sb, 0);
 	if (ret < 0)
 		return ret;
@@ -114,7 +108,6 @@ void sync_filesystems(int nowait)
 	iterate_supers(sync_fs_one_sb, &nowait);
 	iterate_bdevs(fdatawrite_one_bdev, NULL);
 	iterate_bdevs(fdatawait_one_bdev, NULL);
-
 	iterate_supers(sync_inodes_one_sb, &nowait);
 	iterate_supers(sync_fs_one_sb, &nowait);
 	iterate_bdevs(fdatawrite_one_bdev, NULL);
@@ -155,7 +148,6 @@ SYSCALL_DEFINE0(sync)
 static void do_sync_work(struct work_struct *work)
 {
 	int nowait = 0;
-
 	/*
 	 * Sync twice to reduce the possibility we skipped some inodes / pages
 	 * because they were temporarily locked
@@ -186,23 +178,22 @@ void emergency_sync(void)
  */
 SYSCALL_DEFINE1(syncfs, int, fd)
 {
-	struct fd f = fdget(fd);
-
-	if (!fsync_enabled)
-		return 0;
+	struct fd f;
 	struct super_block *sb;
 	int ret, ret2;
 
+	if (!fsync_enabled)
+		return 0;
+
+	f = fdget(fd);
 	if (!f.file)
 		return -EBADF;
-	sb = f.file->f_path.dentry->d_sb;
 
+	sb = f.file->f_path.dentry->d_sb;
 	down_read(&sb->s_umount);
 	ret = sync_filesystem(sb);
 	up_read(&sb->s_umount);
-
 	ret2 = errseq_check_and_advance(&sb->s_wb_err, &f.file->f_sb_err);
-
 	fdput(f);
 	return ret ? ret : ret2;
 }
@@ -224,12 +215,10 @@ int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 
 	if (!fsync_enabled)
 		return 0;
-
 #ifdef CONFIG_DYNAMIC_FSYNC
 	if (dyn_fsync_active && suspend_active)
 		return 0;
 #endif
-
 	if (!file->f_op->fsync)
 		return -EINVAL;
 	if (!datasync && (inode->i_state & I_DIRTY_TIME))
@@ -256,12 +245,13 @@ EXPORT_SYMBOL(vfs_fsync);
 
 static int do_fsync(unsigned int fd, int datasync)
 {
+	struct fd f;
+	int ret = -EBADF;
+
 	if (!fsync_enabled)
 		return 0;
 
-	struct fd f = fdget(fd);
-	int ret = -EBADF;
-
+	f = fdget(fd);
 	if (f.file) {
 		ret = vfs_fsync(f.file, datasync);
 		fdput(f);
@@ -274,7 +264,6 @@ SYSCALL_DEFINE1(fsync, unsigned int, fd)
 {
 	if (!fsync_enabled)
 		return 0;
-
 #ifdef CONFIG_DYNAMIC_FSYNC
 	if (dyn_fsync_active && suspend_active)
 		return 0;
@@ -286,7 +275,6 @@ SYSCALL_DEFINE1(fdatasync, unsigned int, fd)
 {
 	if (!fsync_enabled)
 		return 0;
-
 #ifdef CONFIG_DYNAMIC_FSYNC
 	if (dyn_fsync_active && suspend_active)
 		return 0;
@@ -352,7 +340,6 @@ int ksys_sync_file_range(int fd, loff_t offset, loff_t nbytes,
 
 	if (!fsync_enabled)
 		return 0;
-
 #ifdef CONFIG_DYNAMIC_FSYNC
 	if (dyn_fsync_active && suspend_active)
 		return 0;
@@ -401,7 +388,7 @@ int ksys_sync_file_range(int fd, loff_t offset, loff_t nbytes,
 	i_mode = file_inode(f.file)->i_mode;
 	ret = -ESPIPE;
 	if (!S_ISREG(i_mode) && !S_ISBLK(i_mode) && !S_ISDIR(i_mode) &&
-			!S_ISLNK(i_mode))
+	    !S_ISLNK(i_mode))
 		goto out_put;
 
 	mapping = f.file->f_mapping;
@@ -439,9 +426,9 @@ SYSCALL_DEFINE4(sync_file_range, int, fd, loff_t, offset, loff_t, nbytes,
 SYSCALL_DEFINE4(sync_file_range2, int, fd, unsigned int, flags,
 				 loff_t, offset, loff_t, nbytes)
 {
-	return ksys_sync_file_range(fd, offset, nbytes, flags);
 #ifdef CONFIG_DYNAMIC_FSYNC
 	if (dyn_fsync_active && suspend_active)
 		return 0;
 #endif
+	return ksys_sync_file_range(fd, offset, nbytes, flags);
 }
