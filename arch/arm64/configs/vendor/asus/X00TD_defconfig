@@ -944,3 +944,13 @@ CONFIG_CHARGING_AUTOCUT=y
 CONFIG_DYNAMIC_FSYNC=y
 CONFIG_SIMPLE_GPU_ALGORITHM=y
 CONFIG_ADRENO_IDLER=y
+
+# Turnoff info debug di binary
+# CONFIG_DEBUG_INFO is not set
+
+# Turnoff printk
+# CONFIG_PRINTK= is not set
+
+# = MATIKAN semua debug print otomatis
+# CONFIG_DYNAMIC_DEBUG= is not set
+# CONFIG_DEBUG_FS= is not set
