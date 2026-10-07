@@ -1848,6 +1848,15 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	u8 stat, pt_en_cmd;
 	int rc;
 
+		/* FIX: Report NOT_CHARGING when charging control disables charging.
+	 * This updates UI status bar WITHOUT triggering disconnect event.
+	 */
+	if (chg->chg_disable_votable &&
+	    get_client_vote(chg->chg_disable_votable, USER_VOTER)) {
+		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		return 0;
+	}
+
 	rc = smblib_get_prop_usb_online(chg, &pval);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't get usb online property rc=%d\n",
@@ -2793,10 +2802,10 @@ int smblib_get_prop_die_health(struct smb_charger *chg,
 	return 0;
 }
 
-#define SDP_CURRENT_UA			3300000
-#define CDP_CURRENT_UA			3300000
-#define DCP_CURRENT_UA			3300000
-#define HVDCP_CURRENT_UA		3300000
+#define SDP_CURRENT_UA			500000
+#define CDP_CURRENT_UA			1500000
+#define DCP_CURRENT_UA			1500000
+#define HVDCP_CURRENT_UA		3000000
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
 #define TYPEC_HIGH_CURRENT_UA		3000000
@@ -4782,6 +4791,7 @@ static void smblib_bb_removal_work(struct work_struct *work)
 
 #define BOOST_BACK_UNVOTE_DELAY_MS		750
 #define BOOST_BACK_STORM_COUNT			3
+#define WEAK_CHG_STORM_COUNT			8
 irqreturn_t smblib_handle_switcher_power_ok(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
